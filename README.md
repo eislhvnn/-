@@ -1,6 +1,10 @@
 ##### 可填配置：
 
 ​	需要在config.txt写上配置。第一行写网址，第二行写名字，第三行密码，类似：
+
+
+
+
     ![image](https://github.com/user-attachments/assets/c8934a2c-a1f5-4d8d-8843-255590a4d0a4)
 
 
