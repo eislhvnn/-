@@ -10,8 +10,8 @@ import hashlib
 
 pl_session = requests.session()
 proxies = {
-    'http': 'http://127.0.0.1:7890',
-    'https': 'http://127.0.0.1:7890',
+'https': '127.0.0.1:7890',
+    'http': '127.0.0.1:7890',
 }
 
 
@@ -146,13 +146,20 @@ def encode(decoded_data):
     # 将所有键值对用与号连接
     return '&'.join(encoded_data)
 
-
-def get_url(session, headers, base_url):
+def get_first_page(session, headers, base_url):
     url = f'{base_url}/forum.php?mod=forumdisplay&fid=39&page=1'
-    # print(url)
-    page_text = session.get(url=url, headers=headers, proxies=proxies).text
-    # 获取第二次请求的链接
+    while 1:
+        page_first = session.get(url=url, headers=headers, proxies=proxies)
+        if page_first.status_code ==200:
+            return  page_first.text
+        else:
+            print('首页请求失败，再次请求')
+            continue
+
+def get_url(session, headers, base_url,first_page_data):
+    # 获取第三次请求的链接
     # 第二次请求的载荷
+    page_text = first_page_data
     url_number = re.findall('id="normalthread_(.*?)"', page_text)
     random_number = random.randint(1, len(url_number))
     tid = str(url_number[random_number])
@@ -211,8 +218,7 @@ def write_md5_and_timestamp_to_csv(file_path, data, encoding='gbk'):
             file.write("Timestamp,MD5\n")
         file.write(csv_line)
 
-
-if __name__ == '__main__':
+def geturl_start():
     # user_name=input("输入账户名称")
     user_name = ''
     # user_password=input("输入账户密码")
@@ -240,17 +246,23 @@ if __name__ == '__main__':
             else:
                 info = login(user_name, user_password, base_url)
                 # print(info)
+                return info,base_url
                 break
         except Exception as ex:
             time.sleep(3)
-            print('失败')
+            print('请求失败，检查网址是否粗偶')
             print(ex)
-
+if __name__ == '__main__':
+    info,base_url =geturl_start()
     # 每天三次评论，
     i = 0
     while i < 3:
-        url_list_text = get_url(info[0], info[1], base_url)
+        # 获取首页数据，因为比较容易出错，单独拿出来
+        first_page_data = get_first_page(info[0], info[1], base_url)
+        # 获取随机的链接何链接页面里面的弹窗
+        url_list_text = get_url(info[0], info[1], base_url,first_page_data)
         response_text, reppost, session, headers, base_url, tid, fid = url_list_text
+        # 最后一次请求，进行评论
         list, history = get_data(response_text, reppost, session, headers, base_url, tid, fid)
         time.sleep(60)
         with open('aa.txt', 'w', encoding='gbk') as fp:
@@ -259,3 +271,4 @@ if __name__ == '__main__':
         if '成功' in list:
             write_md5_and_timestamp_to_csv('./history_md5.csv', history)
             i = i + 1
+            print(f'第{i}次成功')
