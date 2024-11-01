@@ -5,7 +5,7 @@
 
 
 
-    ![image](https://github.com/user-attachments/assets/c8934a2c-a1f5-4d8d-8843-255590a4d0a4)
+![image](https://github.com/user-attachments/assets/c8934a2c-a1f5-4d8d-8843-255590a4d0a4)
 
 
 ​	在main.py执行就行，如果是clash代理(默认端口7890）大概率什么都不用管，
@@ -15,6 +15,7 @@
 
 
 ##### emm：
+    已
 
 ​	原本是想直接用改一下别人的脚本的，但是发现好像没见到可以用的，干脆自己重构了一下。
 
@@ -27,3 +28,7 @@
 ​	完善注释和修改格式方便后续更新
 
 ​	写action脚本
+##### 更新
+    cookie保存系统，方便下次登录
+    
+    对一些容易报错的地方修改
