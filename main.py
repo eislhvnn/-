@@ -8,7 +8,7 @@ import random
 import urllib.parse
 import hashlib
 
-pl_session = requests.session()
+
 proxies = {
 'https': '127.0.0.1:7890',
     'http': '127.0.0.1:7890',
@@ -82,9 +82,6 @@ def login(user_name, user_password, base_url):
     else:
         print("银币数量获取失败")
     time.sleep(3)
-
-    # pl(session,headers)
-
 
 def get_data(page_text, reppost, session, headers, base_url, tid, fid):
     # 第三次请求，获取弹出页面和一些参数
@@ -219,18 +216,6 @@ def write_md5_and_timestamp_to_csv(file_path, data, encoding='gbk'):
         file.write(csv_line)
 
 def geturl_start():
-    # user_name=input("输入账户名称")
-    user_name = ''
-    # user_password=input("输入账户密码")
-    user_password = ''
-    base_url = ''
-    text = ''
-    if os.path.exists('config.txt') == False:
-        with open('config.txt', 'a+', encoding='UTF-8') as fp:
-            simple_text = base_url + '\n' + 'username' + '\n' + 'userpassword'
-            print(simple_text)
-            fp_text = fp.write(simple_text)
-
     with open('config.txt', 'a+', encoding='UTF-8') as fp:
         fp.seek(0)
         fp_text = fp.readlines()
@@ -241,33 +226,29 @@ def geturl_start():
         try:
             if user_name == 'username':
                 print(
-                    f'请替换当前目录下config.txt中的username与password为你的账号密码，并且在第一行填入搜书吧的url，例如 https://www.284djs.soushu2028.com/ ,如果搜书吧域名更改，请更改为新的域名')
+                    f'请替换当前目录下config.txt中的username与password为你的账号密码，并且在第一行填入搜书吧的url，首页页面')
                 break
             else:
                 info = login(user_name, user_password, base_url)
-                # print(info)
                 return info,base_url
                 break
         except Exception as ex:
             time.sleep(3)
-            print('请求失败，检查网址是否粗偶')
+            print('请求失败，检查网址是否出错')
             print(ex)
 if __name__ == '__main__':
     info,base_url =geturl_start()
     # 每天三次评论，
     i = 0
+    # 获取首页数据，因为比较容易出错，单独拿出来
+    first_page_data = get_first_page(info[0], info[1], base_url)
     while i < 3:
-        # 获取首页数据，因为比较容易出错，单独拿出来
-        first_page_data = get_first_page(info[0], info[1], base_url)
         # 获取随机的链接何链接页面里面的弹窗
         url_list_text = get_url(info[0], info[1], base_url,first_page_data)
         response_text, reppost, session, headers, base_url, tid, fid = url_list_text
         # 最后一次请求，进行评论
         list, history = get_data(response_text, reppost, session, headers, base_url, tid, fid)
-        time.sleep(60)
-        with open('aa.txt', 'w', encoding='gbk') as fp:
-
-            fp.write(list + '\n')
+        time.sleep(50)
         if '成功' in list:
             write_md5_and_timestamp_to_csv('./history_md5.csv', history)
             i = i + 1
