@@ -7,7 +7,7 @@ from lxml import etree
 import random
 import urllib.parse
 import hashlib
-
+import pickle
 
 proxies = {
 'https': '127.0.0.1:7890',
@@ -17,8 +17,11 @@ proxies = {
 
 def login(user_name, user_password, base_url):
     session = requests.session()
-
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.76"
+    try:
+        with open('cookies.pkl', 'rb') as f:
+            session.cookies.update(pickle.load(f))
+    except:
+        print('还未导入cookie数据')
     logging_api = f"{base_url}/member.php"  # 登录接口
     headers = {
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -55,16 +58,22 @@ def login(user_name, user_password, base_url):
         'quickforward': "yes",
         'handlekey': "ls"}
     # 登录账号
-    response = session.post(base_url, headers=headers, params=params, proxies=proxies)
-    aa = re.findall('<input type="hidden" name="formhash" value="(.*?)" /', response.text)[0]
-    data['formhash'] = aa
-
-    res = session.post(url=logging_api, headers=headers, data=data, params=params, proxies=proxies).text
-
-    if res:
-        print(f'账号：{user_name} 登录成功！！！')
+    response = session.post(base_url, headers=headers,  proxies=proxies)
+    if user_name in response.text:
+        print(user_name,'登录成功')
     else:
-        print('出现错误，请重试！！！')
+        print('cookie失效，重新登录')
+        res = session.post(url=logging_api, headers=headers, data=data, params=params, proxies=proxies).text
+
+        if res:
+            print(f'账号：{user_name} 登录成功！！！')
+        else:
+            print('出现错误，请重试！！！')
+    # 获取银币
+    info =yinbi(headers, base_url,session)
+    time.sleep(3)
+    return info
+def yinbi(headers,base_url,session):
     # 获取银币数量
     user_info_url = f"{base_url}/home.php?mod=spacecp&ac=credit&showcredit=1&inajax=1&ajaxtarget=extcreditmenu_menu"
     user_info_response = session.get(url=user_info_url, headers=headers, proxies=proxies)
@@ -75,14 +84,10 @@ def login(user_name, user_password, base_url):
     html_content = user_info_response.text
     yinbi = re.findall('<span id="hcredit_2">(.*?)</span>', html_content)[0]
     if yinbi:
-
-        print('银币数量获取成功')
         print('当前银币数量:', yinbi)
-        return [session, headers, aa, base_url]
+        return [session, headers]
     else:
         print("银币数量获取失败")
-    time.sleep(3)
-
 def get_data(page_text, reppost, session, headers, base_url, tid, fid):
     # 第三次请求，获取弹出页面和一些参数
     try:
@@ -124,19 +129,33 @@ def get_data(page_text, reppost, session, headers, base_url, tid, fid):
         'inajax': '1',
     }
     # 使用解码后的数据调用 encode 函数
-    data = encode(decoded_data)
+    while 1:
+        try:
+            data = encode(decoded_data)
+            break
+        except Exception as ex:
+            print('出现异常报错，重试：',decoded_data)
+            print(ex)
     response = session.post(f'{base_url}/forum.php', params=params, headers=headers, data=data, proxies=proxies)
+    # 保存cookie
+    save_cookie(session)
     return response.text, converted_sentence
 
-
+def save_cookie(session):
+    # 导出 cookies 到文件
+    with open('cookies.pkl', 'wb') as f:
+        pickle.dump(session.cookies, f)
+    # 设置文件权限，确保只有当前用户可以访问
+    os.chmod('cookies.pkl', 0o600)
 def encode(decoded_data):
     encoded_data = []
     for key, value in decoded_data.items():
+
         # 对值进行编码,noticeauthor不需要
         if key == 'noticeauthor':
-            encoded_value = urllib.parse.quote(value.encode('gb2312'), safe='~()*!.\'')
+            encoded_value = urllib.parse.quote(value.encode('gbk'), safe='~()*!.\'')
         else:
-            encoded_value = urllib.parse.quote(value.encode('gb2312'), safe='~()*!.\'+...')
+            encoded_value = urllib.parse.quote(value.encode('gbk'), safe='~()*!.\'+...')
         # 将键和编码后的值用等号连接
         encoded_pair = f"{key}={encoded_value}"
         encoded_data.append(encoded_pair)
@@ -158,7 +177,13 @@ def get_url(session, headers, base_url,first_page_data):
     # 第二次请求的载荷
     page_text = first_page_data
     url_number = re.findall('id="normalthread_(.*?)"', page_text)
-    random_number = random.randint(1, len(url_number))
+    while 1:
+        try:
+            random_number = random.randint(1, len(url_number))
+            break
+        except Exception as ex:
+            print(url_number,'/n匹配的数字：',random_number)
+            print(ex)
     tid = str(url_number[random_number])
     params = {
         'mod': 'viewthread',
@@ -248,8 +273,9 @@ if __name__ == '__main__':
         response_text, reppost, session, headers, base_url, tid, fid = url_list_text
         # 最后一次请求，进行评论
         list, history = get_data(response_text, reppost, session, headers, base_url, tid, fid)
-        time.sleep(50)
+        time.sleep(55)
         if '成功' in list:
             write_md5_and_timestamp_to_csv('./history_md5.csv', history)
             i = i + 1
             print(f'第{i}次成功')
+    yinbi(headers, base_url, session)
