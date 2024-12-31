@@ -241,17 +241,29 @@ def write_md5_and_timestamp_to_csv(file_path, data, encoding='gbk'):
         file.write(csv_line)
 
 def geturl_start():
-    with open('config.txt', 'a+', encoding='UTF-8') as fp:
+    with open('config.txt', 'r+', encoding='UTF-8') as fp:
         fp.seek(0)
         fp_text = fp.readlines()
         user_name = fp_text[1].strip('\n').strip('')
         user_password = fp_text[2].strip('\n').strip('')
         base_url = fp_text[0].strip('\n').strip('')
+        # 验证url是否正确
+        check_url1 =check_url(base_url)
+        if base_url==check_url1 :
+            pass
+        else:
+            print('网址不正确，已修改为最新网址')
+            base_url=check_url1
+            fp_text[0] = base_url + '\n'
+            # 移动到文件的开始位置
+            fp.seek(0)
+            # 写回修改后的内容
+            fp.writelines(fp_text)
+            fp.truncate()
     while True:
         try:
             if user_name == 'username':
-                print(
-                    f'请替换当前目录下config.txt中的username与password为你的账号密码，并且在第一行填入搜书吧的url，首页页面')
+                print(f'请替换当前目录下config.txt中的username与password为你的账号密码，并且在第一行填入搜书吧的url，首页页面')
                 break
             else:
                 info = login(user_name, user_password, base_url)
@@ -259,9 +271,50 @@ def geturl_start():
                 break
         except Exception as ex:
             time.sleep(3)
-            print('请求失败，检查网址是否出错')
-            print(ex)
+            print(ex,'可能是接口错误或其他原因，重试')
+            if exception_count >= 3:
+                print("异常次数超过三次，退出循环")
+                break
+def check_url(url):
+    session1 = requests.Session()
+    headers = {
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'cache-control': 'no-cache',
+        'pragma': 'no-cache',
+        'priority': 'u=0, i',
+        'sec-ch-ua': '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+    }
+    url = url
+    # 先判断网址是否正确
+    response = session1.get(url, headers=headers)
+    if '<meta http-equiv="refresh" content="0.1;url=/sou/go.html">' in response.text:
+        response = session1.get(url + '/sou/go.html', headers=headers)
+        print(response.status_code)
+
+        re.findall(r'urls\[0\]="(.*?)"', response.text)
+        check_url = re.findall(r'urls\[0\]="(.*?)"', response.text)[0]
+        print(check_url)
+        response = session1.get(url + check_url, headers=headers)
+        print(response.text)
+        check_url2 = re.findall(r'url=(.*?)">', response.text)[0]
+        response = session1.get(check_url2, headers=headers)
+        # 获取正确网址
+        check_url3 = re.findall(r'<p><a href="(.*?)/" target="_blank">', response.text)[0]
+        # 返回正确地址
+        return check_url3
+    else:
+        return url            
 if __name__ == '__main__':
+    exception_count = 0
     info,base_url =geturl_start()
     # 每天三次评论，
     i = 0
